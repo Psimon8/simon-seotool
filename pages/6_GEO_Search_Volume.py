@@ -56,12 +56,32 @@ def make_dataforseo_request(login, password, keywords, location_code=2840, langu
         st.error(f"Request failed: {str(e)}")
         return None
 
-def process_api_response(response_data):
+def process_api_response(response_data, location_code, language_code):
     """
-    Process API response and create DataFrame
+    Process API response and create DataFrame with specified format
     """
     if not response_data or 'tasks' not in response_data:
         return None
+    
+    # Get location and language names
+    location_name = {
+        2840: "United States",
+        2826: "United Kingdom", 
+        2250: "France",
+        2276: "Germany",
+        2724: "Spain",
+        2380: "Italy",
+        2392: "Japan"
+    }.get(location_code, str(location_code))
+    
+    language_name = {
+        "en": "English",
+        "fr": "French",
+        "de": "German", 
+        "es": "Spanish",
+        "it": "Italian",
+        "ja": "Japanese"
+    }.get(language_code, language_code)
     
     results = []
     for task in response_data['tasks']:
@@ -69,24 +89,51 @@ def process_api_response(response_data):
             for result_item in task['result']:
                 if 'items' in result_item:
                     for item in result_item['items']:
-                        keyword_data = {
+                        # Base data
+                        row_data = {
                             'Keyword': item.get('keyword', ''),
-                            'Search Volume': item.get('ai_search_volume', 0),
-                            'Competition': 0,  # Not available in this API
-                            'CPC': 0,  # Not available in this API
-                            'Monthly Searches': []
+                            'Language': language_name,
+                            'Country': location_name
                         }
                         
-                        # Add monthly search data if available
-                        if 'ai_monthly_searches' in item and item['ai_monthly_searches']:
-                            for month_data in item['ai_monthly_searches']:
-                                keyword_data['Monthly Searches'].append({
-                                    'year': month_data.get('year'),
-                                    'month': month_data.get('month'),
-                                    'search_volume': month_data.get('ai_search_volume')
-                                })
+                        # Process monthly data
+                        monthly_data = item.get('ai_monthly_searches', [])
+                        if monthly_data:
+                            # Sort by year and month (most recent first)
+                            monthly_data = sorted(monthly_data, 
+                                                key=lambda x: (x.get('year', 0), x.get('month', 0)), 
+                                                reverse=True)
+                            
+                            # Get latest month volume
+                            latest_volume = monthly_data[0].get('ai_search_volume', 0)
+                            row_data['Latest Month Volume'] = latest_volume
+                            
+                            # Calculate percentage change
+                            if len(monthly_data) > 1:
+                                oldest_volume = monthly_data[-1].get('ai_search_volume', 0)
+                                if oldest_volume > 0:
+                                    percentage_change = ((latest_volume - oldest_volume) / oldest_volume) * 100
+                                    row_data['Change %'] = round(percentage_change, 2)
+                                else:
+                                    row_data['Change %'] = 0
+                            else:
+                                row_data['Change %'] = 0
+                            
+                            # Add monthly columns
+                            for month_data in monthly_data:
+                                year = month_data.get('year', 0)
+                                month = month_data.get('month', 0)
+                                volume = month_data.get('ai_search_volume', 0)
+                                
+                                # Format: MM/YYYY
+                                month_header = f"{month:02d}/{year}"
+                                row_data[month_header] = volume
+                        else:
+                            # No monthly data
+                            row_data['Latest Month Volume'] = item.get('ai_search_volume', 0)
+                            row_data['Change %'] = 0
                         
-                        results.append(keyword_data)
+                        results.append(row_data)
         else:
             st.error(f"Task error - Status: {task.get('status_code')}, Message: {task.get('status_message', 'Unknown error')}")
     
@@ -94,32 +141,29 @@ def process_api_response(response_data):
 
 def export_to_excel(df):
     """
-    Export DataFrame to Excel format
+    Export DataFrame to Excel format with proper formatting
     """
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # Main data
-        export_df = df.copy()
-        if 'Monthly Searches' in export_df.columns:
-            export_df = export_df.drop('Monthly Searches', axis=1)
-        export_df.to_excel(writer, index=False, sheet_name='Search Volume Data')
+        # Export main data
+        df.to_excel(writer, index=False, sheet_name='Search Volume Data')
         
-        # Monthly trends if available
-        if 'Monthly Searches' in df.columns and not df['Monthly Searches'].empty:
-            trends_data = []
-            for idx, row in df.iterrows():
-                if row['Monthly Searches']:
-                    for month_data in row['Monthly Searches']:
-                        trends_data.append({
-                            'Keyword': row['Keyword'],
-                            'Year': month_data.get('year'),
-                            'Month': month_data.get('month'),
-                            'Search Volume': month_data.get('search_volume')
-                        })
-            
-            if trends_data:
-                trends_df = pd.DataFrame(trends_data)
-                trends_df.to_excel(writer, index=False, sheet_name='Monthly Trends')
+        # Get the workbook and worksheet for formatting
+        workbook = writer.book
+        worksheet = writer.sheets['Search Volume Data']
+        
+        # Auto-adjust column widths
+        for column in worksheet.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            worksheet.column_dimensions[column_letter].width = adjusted_width
     
     return output.getvalue()
 
@@ -252,7 +296,7 @@ def main():
                             with st.expander("🐛 Debug - API Response (click to expand)"):
                                 st.json(response_data)
                             
-                            df_results = process_api_response(response_data)
+                            df_results = process_api_response(response_data, location_code, language_code)
                             
                             if df_results is not None and not df_results.empty:
                                 st.success(f"✅ Successfully retrieved data for {len(df_results)} keywords!")
@@ -267,23 +311,28 @@ def main():
                                     st.metric("Total Keywords", len(df_results))
                                 
                                 with col2:
-                                    avg_volume = df_results['Search Volume'].mean()
-                                    st.metric("Avg Search Volume", f"{avg_volume:,.0f}")
+                                    if 'Latest Month Volume' in df_results.columns:
+                                        avg_volume = df_results['Latest Month Volume'].mean()
+                                        st.metric("Avg Latest Volume", f"{avg_volume:,.0f}")
+                                    else:
+                                        st.metric("Avg Latest Volume", "N/A")
                                 
                                 with col3:
-                                    total_volume = df_results['Search Volume'].sum()
-                                    st.metric("Total Search Volume", f"{total_volume:,.0f}")
+                                    if 'Latest Month Volume' in df_results.columns:
+                                        total_volume = df_results['Latest Month Volume'].sum()
+                                        st.metric("Total Latest Volume", f"{total_volume:,.0f}")
+                                    else:
+                                        st.metric("Total Latest Volume", "N/A")
                                 
                                 with col4:
-                                    # Since CPC is not available in this API, show max volume instead
-                                    max_volume = df_results['Search Volume'].max()
-                                    st.metric("Max Search Volume", f"{max_volume:,.0f}")
+                                    if 'Change %' in df_results.columns:
+                                        avg_change = df_results['Change %'].mean()
+                                        st.metric("Avg Change %", f"{avg_change:.1f}%")
+                                    else:
+                                        st.metric("Avg Change %", "N/A")
                                 
                                 # Display data table
-                                display_df = df_results.drop('Monthly Searches', axis=1) if 'Monthly Searches' in df_results.columns else df_results
-                                # Remove CPC and Competition columns since they're not available
-                                display_df = display_df[['Keyword', 'Search Volume']]
-                                st.dataframe(display_df, use_container_width=True)
+                                st.dataframe(df_results, use_container_width=True)
                                 
                                 # Export functionality
                                 st.markdown("### 📥 Export Data")
@@ -343,10 +392,12 @@ def main():
         ### 📊 Data provided
         
         For each keyword, you'll get:
-        - **Search Volume** : Monthly average search volume
-        - **Competition** : Competition level (0-1 scale)
-        - **CPC** : Cost per click in USD
-        - **Monthly Trends** : 12-month search volume history (when available)
+        - **Keyword** : The search term
+        - **Language** : Target language for the search
+        - **Country** : Target country for the search
+        - **Latest Month Volume** : Most recent month's search volume
+        - **Change %** : Percentage change from oldest to newest month
+        - **Monthly Data** : Search volume for each available month (MM/YYYY format)
         """)
         
         st.markdown("""
