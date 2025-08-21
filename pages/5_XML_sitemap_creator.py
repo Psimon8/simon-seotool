@@ -106,17 +106,7 @@ def main():
     tab1, tab2 = st.tabs(["🚀 Main", "ℹ️ About"])
     
     with tab1:
-        st.markdown("""
-        ### 📋 Instructions
-        1. **Téléchargez** votre fichier Excel (.xlsx ou .xls)
-        2. **Configurez** les paramètres du sitemap (optionnel)
-        3. **Générez** et téléchargez votre sitemap XML
-        
-        ⚠️ **Important :** Les URLs doivent être dans la première colonne (A) de votre fichier Excel.
-        """)
-        
         # Upload du fichier Excel
-        st.markdown("### 📁 Téléchargement du fichier Excel")
         uploaded_file = st.file_uploader(
             "Choisissez votre fichier Excel",
             type=['xlsx', 'xls'],
@@ -221,6 +211,15 @@ def main():
     
     with tab2:
         st.markdown("## 📚 Guidelines et Informations")
+        
+        st.markdown("""
+        ### 📋 Instructions
+        1. **Téléchargez** votre fichier Excel (.xlsx ou .xls)
+        2. **Configurez** les paramètres du sitemap (optionnel)
+        3. **Générez** et téléchargez votre sitemap XML
+        
+        ⚠️ **Important :** Les URLs doivent être dans la première colonne (A) de votre fichier Excel.
+        """)
         
         st.markdown("""
         ### 🎯 Qu'est-ce qu'un sitemap XML ?
