@@ -184,10 +184,6 @@ def main():
         with col2:
             password = st.text_input("Password", type="password", help="Your DataforSEO password")
         
-        if not login or not password:
-            st.warning("⚠️ Please enter your DataforSEO credentials to continue.")
-            st.stop()
-        
         # Location and language settings
         st.markdown("### 🌍 Location & Language Settings")
         col1, col2 = st.columns(2)
@@ -226,137 +222,141 @@ def main():
         # Keywords input section
         st.markdown("### 📝 Keywords Input")
         
-        input_method = st.radio(
-            "Choose input method:",
-            ["Copy/Paste Keywords", "Upload Excel File"],
-            horizontal=True
-        )
-        
-        keywords = []
-        
-        if input_method == "Copy/Paste Keywords":
-            keywords_text = st.text_area(
-                "Enter keywords (one per line):",
-                height=200,
-                placeholder="keyword 1\nkeyword 2\nkeyword 3\n...",
-                help="Enter each keyword on a new line"
-            )
-            
-            if keywords_text:
-                keywords = [kw.strip() for kw in keywords_text.split('\n') if kw.strip()]
-                st.info(f"📊 {len(keywords)} keywords detected")
-        
-        else:  # Upload Excel File
-            uploaded_file = st.file_uploader(
-                "Upload Excel file with keywords",
-                type=['xlsx', 'xls'],
-                help="Keywords should be in the first column"
-            )
-            
-            if uploaded_file:
-                try:
-                    df_upload = pd.read_excel(uploaded_file, header=None, usecols=[0])
-                    keywords = [str(kw).strip() for kw in df_upload.iloc[:, 0].tolist() if pd.notna(kw) and str(kw).strip()]
-                    st.success(f"✅ {len(keywords)} keywords loaded from file")
-                    
-                    # Show preview
-                    st.markdown("**Keywords preview:**")
-                    preview_df = pd.DataFrame({'Keywords': keywords[:10]})
-                    st.dataframe(preview_df, use_container_width=True)
-                    
-                    if len(keywords) > 10:
-                        st.info(f"Showing first 10 keywords out of {len(keywords)} total")
-                        
-                except Exception as e:
-                    st.error(f"Error reading file: {str(e)}")
-        
-        # API Request section
-        if keywords:
-            st.markdown("### 🚀 Get Search Volume Data")
-            
-            # API limits warning
-            st.warning(f"""
-            ⚠️ **API Usage Notice:**
-            - You're about to request data for {len(keywords)} keywords
-            - DataforSEO charges per keyword processed
-            - Make sure you have sufficient credits in your account
-            """)
-            
-            if st.button("📊 Get Search Volume Data", type="primary", use_container_width=True):
-                if len(keywords) > 1000:
-                    st.error("Maximum 1000 keywords per request. Please reduce the number of keywords.")
-                else:
-                    with st.spinner(f"Fetching search volume data for {len(keywords)} keywords..."):
-                        response_data = make_dataforseo_request(
-                            login, password, keywords, location_code, language_code
-                        )
-                        
-                        if response_data:
-                            # Add debug expander
-                            with st.expander("🐛 Debug - API Response (click to expand)"):
-                                st.json(response_data)
-                            
-                            df_results = process_api_response(response_data, location_code, language_code)
-                            
-                            if df_results is not None and not df_results.empty:
-                                st.success(f"✅ Successfully retrieved data for {len(df_results)} keywords!")
-                                
-                                # Display results
-                                st.markdown("### 📊 Results")
-                                
-                                # Summary metrics
-                                col1, col2, col3, col4 = st.columns(4)
-                                
-                                with col1:
-                                    st.metric("Total Keywords", len(df_results))
-                                
-                                with col2:
-                                    if 'Latest Month Volume' in df_results.columns:
-                                        avg_volume = df_results['Latest Month Volume'].mean()
-                                        st.metric("Avg Latest Volume", f"{avg_volume:,.0f}")
-                                    else:
-                                        st.metric("Avg Latest Volume", "N/A")
-                                
-                                with col3:
-                                    if 'Latest Month Volume' in df_results.columns:
-                                        total_volume = df_results['Latest Month Volume'].sum()
-                                        st.metric("Total Latest Volume", f"{total_volume:,.0f}")
-                                    else:
-                                        st.metric("Total Latest Volume", "N/A")
-                                
-                                with col4:
-                                    if 'Change %' in df_results.columns:
-                                        avg_change = df_results['Change %'].mean()
-                                        st.metric("Avg Change %", f"{avg_change:.1f}%")
-                                    else:
-                                        st.metric("Avg Change %", "N/A")
-                                
-                                # Display data table
-                                st.dataframe(df_results, use_container_width=True)
-                                
-                                # Export functionality
-                                st.markdown("### 📥 Export Data")
-                                
-                                excel_data = export_to_excel(df_results)
-                                filename = f"search_volume_data_{time.strftime('%Y%m%d_%H%M%S')}.xlsx"
-                                
-                                st.download_button(
-                                    label="📥 Download Excel Report",
-                                    data=excel_data,
-                                    file_name=filename,
-                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                    type="primary",
-                                    use_container_width=True
-                                )
-                                
-                            else:
-                                st.error("No data received from API. Please check your keywords and try again.")
-                                # Show debug info when no data
-                                if response_data:
-                                    with st.expander("🐛 Debug - Full API Response"):
-                                        st.json(response_data)
+        if not login or not password:
+            st.warning("⚠️ Please enter your DataforSEO credentials above to continue.")
         else:
-            st.info("👆 Please enter keywords using one of the methods above.")
+            input_method = st.radio(
+                "Choose input method:",
+                ["Copy/Paste Keywords", "Upload Excel File"],
+                horizontal=True
+            )
+            
+            keywords = []
+            
+            if input_method == "Copy/Paste Keywords":
+                keywords_text = st.text_area(
+                    "Enter keywords (one per line):",
+                    height=200,
+                    placeholder="keyword 1\nkeyword 2\nkeyword 3\n...",
+                    help="Enter each keyword on a new line"
+                )
+                
+                if keywords_text:
+                    keywords = [kw.strip() for kw in keywords_text.split('\n') if kw.strip()]
+                    st.info(f"📊 {len(keywords)} keywords detected")
+            
+            else:  # Upload Excel File
+                uploaded_file = st.file_uploader(
+                    "Upload Excel file with keywords",
+                    type=['xlsx', 'xls'],
+                    help="Keywords should be in the first column"
+                )
+                
+                if uploaded_file:
+                    try:
+                        df_upload = pd.read_excel(uploaded_file, header=None, usecols=[0])
+                        keywords = [str(kw).strip() for kw in df_upload.iloc[:, 0].tolist() if pd.notna(kw) and str(kw).strip()]
+                        st.success(f"✅ {len(keywords)} keywords loaded from file")
+                        
+                        # Show preview
+                        st.markdown("**Keywords preview:**")
+                        preview_df = pd.DataFrame({'Keywords': keywords[:10]})
+                        st.dataframe(preview_df, use_container_width=True)
+                        
+                        if len(keywords) > 10:
+                            st.info(f"Showing first 10 keywords out of {len(keywords)} total")
+                            
+                    except Exception as e:
+                        st.error(f"Error reading file: {str(e)}")
+            
+            # API Request section
+            if keywords:
+                st.markdown("### 🚀 Get Search Volume Data")
+                
+                # API limits warning
+                st.warning(f"""
+                ⚠️ **API Usage Notice:**
+                - You're about to request data for {len(keywords)} keywords
+                - DataforSEO charges per keyword processed
+                - Make sure you have sufficient credits in your account
+                """)
+                
+                if st.button("📊 Get Search Volume Data", type="primary", use_container_width=True):
+                    if len(keywords) > 1000:
+                        st.error("Maximum 1000 keywords per request. Please reduce the number of keywords.")
+                    else:
+                        with st.spinner(f"Fetching search volume data for {len(keywords)} keywords..."):
+                            response_data = make_dataforseo_request(
+                                login, password, keywords, location_code, language_code
+                            )
+                            
+                            if response_data:
+                                # Add debug expander
+                                with st.expander("🐛 Debug - API Response (click to expand)"):
+                                    st.json(response_data)
+                                
+                                df_results = process_api_response(response_data, location_code, language_code)
+                                
+                                if df_results is not None and not df_results.empty:
+                                    st.success(f"✅ Successfully retrieved data for {len(df_results)} keywords!")
+                                    
+                                    # Display results
+                                    st.markdown("### 📊 Results")
+                                    
+                                    # Summary metrics
+                                    col1, col2, col3, col4 = st.columns(4)
+                                    
+                                    with col1:
+                                        st.metric("Total Keywords", len(df_results))
+                                    
+                                    with col2:
+                                        if 'Latest Month Volume' in df_results.columns:
+                                            avg_volume = df_results['Latest Month Volume'].mean()
+                                            st.metric("Avg Latest Volume", f"{avg_volume:,.0f}")
+                                        else:
+                                            st.metric("Avg Latest Volume", "N/A")
+                                    
+                                    with col3:
+                                        if 'Latest Month Volume' in df_results.columns:
+                                            total_volume = df_results['Latest Month Volume'].sum()
+                                            st.metric("Total Latest Volume", f"{total_volume:,.0f}")
+                                        else:
+                                            st.metric("Total Latest Volume", "N/A")
+                                    
+                                    with col4:
+                                        if 'Change %' in df_results.columns:
+                                            avg_change = df_results['Change %'].mean()
+                                            st.metric("Avg Change %", f"{avg_change:.1f}%")
+                                        else:
+                                            st.metric("Avg Change %", "N/A")
+                                    
+                                    # Display data table
+                                    st.dataframe(df_results, use_container_width=True)
+                                    
+                                    # Export functionality
+                                    st.markdown("### 📥 Export Data")
+                                    
+                                    excel_data = export_to_excel(df_results)
+                                    filename = f"search_volume_data_{time.strftime('%Y%m%d_%H%M%S')}.xlsx"
+                                    
+                                    st.download_button(
+                                        label="📥 Download Excel Report",
+                                        data=excel_data,
+                                        file_name=filename,
+                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                        type="primary",
+                                        use_container_width=True
+                                    )
+                                    
+                                else:
+                                    st.error("No data received from API. Please check your keywords and try again.")
+                                    # Show debug info when no data
+                                    if response_data:
+                                        with st.expander("🐛 Debug - Full API Response"):
+                                            st.json(response_data)
+            else:
+                if login and password:
+                    st.info("👆 Please enter keywords using one of the methods above.")
 
     with tab2:
         st.markdown("## 📚 About GEO Search Volume")
