@@ -35,8 +35,9 @@ def make_dataforseo_request(login, password, keywords, location_code=2840, langu
     }
     
     try:
+        # Correct API endpoint
         response = requests.post(
-            'https://api.dataforseo.com/v3/dataforseo_labs/google/search_volume/live',
+            'https://api.dataforseo.com/v3/ai_optimization/ai_keyword_data/keywords_search_volume/live',
             data=json.dumps(post_data),
             headers=headers
         )
