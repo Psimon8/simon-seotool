@@ -19,15 +19,19 @@ def make_dataforseo_request(login, password, keywords, location_code=2840, langu
     # Encode credentials
     credentials = base64.b64encode(f"{login}:{password}".encode()).decode()
     
-    # Prepare request data
-    post_data = [{
-        "keywords": keywords,
-        "location_code": location_code,
-        "language_code": language_code,
-        "include_serp_info": False,
-        "include_clickstream_data": True,
-        "include_search_volume": True
-    }]
+    # Prepare request data according to DataforSEO documentation
+    post_data = dict()
+    post_data[0] = dict(
+        language_name="English" if language_code == "en" else {
+            "fr": "French",
+            "de": "German", 
+            "es": "Spanish",
+            "it": "Italian",
+            "ja": "Japanese"
+        }.get(language_code, "English"),
+        location_code=location_code,
+        keywords=keywords
+    )
     
     headers = {
         'Authorization': f'Basic {credentials}',
@@ -62,27 +66,31 @@ def process_api_response(response_data):
     results = []
     for task in response_data['tasks']:
         if task['status_code'] == 20000 and 'result' in task:
-            for item in task['result']:
-                keyword_data = {
-                    'Keyword': item.get('keyword', ''),
-                    'Search Volume': item.get('search_volume', 0),
-                    'Competition': item.get('competition', 0),
-                    'CPC': item.get('cpc', 0),
-                    'Monthly Searches': []
-                }
-                
-                # Add monthly search data if available
-                if 'monthly_searches' in item and item['monthly_searches']:
-                    for month_data in item['monthly_searches']:
-                        keyword_data['Monthly Searches'].append({
-                            'year': month_data.get('year'),
-                            'month': month_data.get('month'),
-                            'search_volume': month_data.get('search_volume')
-                        })
-                
-                results.append(keyword_data)
+            for result_item in task['result']:
+                if 'items' in result_item:
+                    for item in result_item['items']:
+                        keyword_data = {
+                            'Keyword': item.get('keyword', ''),
+                            'Search Volume': item.get('ai_search_volume', 0),
+                            'Competition': 0,  # Not available in this API
+                            'CPC': 0,  # Not available in this API
+                            'Monthly Searches': []
+                        }
+                        
+                        # Add monthly search data if available
+                        if 'ai_monthly_searches' in item and item['ai_monthly_searches']:
+                            for month_data in item['ai_monthly_searches']:
+                                keyword_data['Monthly Searches'].append({
+                                    'year': month_data.get('year'),
+                                    'month': month_data.get('month'),
+                                    'search_volume': month_data.get('ai_search_volume')
+                                })
+                        
+                        results.append(keyword_data)
+        else:
+            st.error(f"Task error - Status: {task.get('status_code')}, Message: {task.get('status_message', 'Unknown error')}")
     
-    return pd.DataFrame(results)
+    return pd.DataFrame(results) if results else None
 
 def export_to_excel(df):
     """
@@ -240,6 +248,10 @@ def main():
                         )
                         
                         if response_data:
+                            # Add debug expander
+                            with st.expander("🐛 Debug - API Response (click to expand)"):
+                                st.json(response_data)
+                            
                             df_results = process_api_response(response_data)
                             
                             if df_results is not None and not df_results.empty:
@@ -263,11 +275,14 @@ def main():
                                     st.metric("Total Search Volume", f"{total_volume:,.0f}")
                                 
                                 with col4:
-                                    avg_cpc = df_results['CPC'].mean()
-                                    st.metric("Avg CPC", f"${avg_cpc:.2f}")
+                                    # Since CPC is not available in this API, show max volume instead
+                                    max_volume = df_results['Search Volume'].max()
+                                    st.metric("Max Search Volume", f"{max_volume:,.0f}")
                                 
                                 # Display data table
                                 display_df = df_results.drop('Monthly Searches', axis=1) if 'Monthly Searches' in df_results.columns else df_results
+                                # Remove CPC and Competition columns since they're not available
+                                display_df = display_df[['Keyword', 'Search Volume']]
                                 st.dataframe(display_df, use_container_width=True)
                                 
                                 # Export functionality
@@ -287,12 +302,11 @@ def main():
                                 
                             else:
                                 st.error("No data received from API. Please check your keywords and try again.")
-                        else:
-                            st.error("Failed to fetch data from DataforSEO API.")
-        
-        else:
-            st.info("👆 Please enter keywords using one of the methods above.")
-    
+                                # Show debug info when no data
+                                if response_data:
+                                    with st.expander("🐛 Debug - Full API Response"):
+                                        st.json(response_data)
+
     with tab2:
         st.markdown("## 📚 About GEO Search Volume")
         
