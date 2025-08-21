@@ -355,6 +355,8 @@ def main():
                                 if response_data:
                                     with st.expander("🐛 Debug - Full API Response"):
                                         st.json(response_data)
+        else:
+            st.info("👆 Please enter keywords using one of the methods above.")
 
     with tab2:
         st.markdown("## 📚 About GEO Search Volume")
@@ -433,23 +435,24 @@ def main():
         ### 📥 Export features
         
         **Excel Export includes:**
-        - **Main sheet** : All keyword data with search volume, competition, and CPC
-        - **Trends sheet** : Monthly search volume data (when available)
+        - **Main sheet** : All keyword data with monthly trends
+        - **Proper formatting** : Auto-adjusted column widths
         - **Timestamp** : File includes generation timestamp
         """)
         
         st.markdown("""
         ### 💡 Use cases
         
-        - **Keyword Research** : Validate keyword opportunities
-        - **Content Planning** : Prioritize content based on search volume
-        - **PPC Campaigns** : Get CPC estimates for ad budgeting
+        - **Keyword Research** : Validate keyword opportunities with accurate volumes
+        - **Content Planning** : Prioritize content based on search volume trends
         - **Market Analysis** : Compare keyword performance across regions
-        - **Trend Analysis** : Understand seasonal search patterns
+        - **Trend Analysis** : Understand seasonal search patterns with monthly data
+        - **SEO Strategy** : Plan optimization efforts based on volume data
         """)
         
         st.info("""
         💡 **Pro Tip:** Start with a small batch of keywords to test your API setup before processing large lists.
+        The tool shows monthly trends which help identify seasonal patterns in search behavior.
         """)
         
         st.markdown("""
