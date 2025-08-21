@@ -100,7 +100,6 @@ def create_sitemap_from_dataframe(df, changefreq="weekly", priority="0.8"):
 
 def main():
     st.title("🗺️ Générateur de Sitemap XML")
-    st.markdown("---")
     
     # Création des onglets
     tab1, tab2 = st.tabs(["🚀 Main", "ℹ️ About"])
