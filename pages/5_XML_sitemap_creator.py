@@ -113,6 +113,28 @@ def main():
             help="Le fichier doit contenir les URLs dans la première colonne"
         )
         
+        # Configuration du sitemap (toujours visible)
+        st.markdown("### ⚙️ Configuration du sitemap")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            changefreq = st.selectbox(
+                "Fréquence de changement",
+                ["always", "hourly", "daily", "weekly", "monthly", "yearly", "never"],
+                index=3,  # "weekly" par défaut
+                help="Indique à quelle fréquence la page est susceptible de changer"
+            )
+        
+        with col2:
+            priority = st.slider(
+                "Priorité",
+                min_value=0.0,
+                max_value=1.0,
+                value=0.8,
+                step=0.1,
+                help="Priorité relative de cette URL par rapport aux autres URLs de votre site"
+            )
+        
         if uploaded_file is not None:
             try:
                 # Lire le fichier Excel
@@ -132,28 +154,6 @@ def main():
                 
                 if len(df) > 10:
                     st.info(f"Affichage des 10 premières URLs sur {len(df)} au total.")
-                
-                # Configuration du sitemap
-                st.markdown("### ⚙️ Configuration du sitemap")
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    changefreq = st.selectbox(
-                        "Fréquence de changement",
-                        ["always", "hourly", "daily", "weekly", "monthly", "yearly", "never"],
-                        index=3,  # "weekly" par défaut
-                        help="Indique à quelle fréquence la page est susceptible de changer"
-                    )
-                
-                with col2:
-                    priority = st.slider(
-                        "Priorité",
-                        min_value=0.0,
-                        max_value=1.0,
-                        value=0.8,
-                        step=0.1,
-                        help="Priorité relative de cette URL par rapport aux autres URLs de votre site"
-                    )
                 
                 # Bouton de génération
                 if st.button("🚀 Générer le sitemap", type="primary", use_container_width=True):
